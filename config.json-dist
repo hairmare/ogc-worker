@@ -1,0 +1,14 @@
+{
+  "api": {
+    "url": "http://localhost",
+    "version": "~0.0.1"
+  },
+  "zmq": {
+    "worker": "tcp://127.0.0.1:3000"
+  },
+  "docker": {
+    "socketPath": false,
+    "host": "http://docker",
+    "port": 4444
+  }
+}

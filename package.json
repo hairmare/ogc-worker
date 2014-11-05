@@ -1,0 +1,31 @@
+{
+  "name": "ogc-worker",
+  "version": "0.0.1",
+  "description": "Online GLSA Checker Worker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node hello.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hairmare/ogc-worker.git"
+  },
+  "keywords": [
+    "gentoo"
+  ],
+  "author": "glsa",
+  "license": "AGPL",
+  "bugs": {
+    "url": "https://github.com/hairmare/ogc-worker/issues"
+  },
+  "homepage": "https://github.com/hairmare/ogc-worker",
+  "dependencies": {
+    "commander": "^2.5.0",
+    "dockerode": "^2.0.4",
+    "event-stream": "^3.1.7",
+    "restify": "^2.8.3",
+    "underscore": "^1.7.0",
+    "zmq": "^2.8.0"
+  }
+}
