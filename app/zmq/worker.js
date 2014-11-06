@@ -3,8 +3,8 @@
 function worker(options, zmq)
 {
   var sock = zmq.socket('pull');
-  sock.connect(options.zmq.worker);
-  console.log('Worker connected to port 3000');
+  sock.connect(options.zmqSocket);
+  console.log('Worker connected to '+options.zmqSocket);
   return sock;
 }
 

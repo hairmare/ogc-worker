@@ -3,18 +3,23 @@
 ## Install
 
 ```
-npm install
+docker pull hairmare/ogc-worker
 ```
 
 ## Usage
 
-```
-cp config.json-dist config.json
-node index.js
-```
-
-## Run on Docker
+Run using ``docker run hairmare/ogc-worker``.
 
 ```
-docker run --link ogc-api:api --link ogc-api:zmq --link docker:docker --env WORKER_TYPE=all -d hairmare/ogc-worker
+  Usage: ogc-worker [work] - run an ogc worker
+
+  Commands:
+
+    list                   list available workers
+    work [options] [type]  <type> - run a worker
+
+  Options:
+
+    -h, --help     output usage information
+    -V, --version  output the version number
 ```

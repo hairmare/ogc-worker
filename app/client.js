@@ -2,8 +2,8 @@
 
 function client(options, restify, assert) {
   var client = restify.createJsonClient({
-    url: options.api.url,
-    version: options.api.version
+    url: 'http://'+options.apiHost+':'+options.apiPort,
+    version: '^0.0.1'
   });
   return {
     _client: client,
