@@ -29,6 +29,14 @@ function updateImageFromHub(image) {
 function triggerBuild(image) {
   api.post('/builds', {image: { $ref: '/images/' + image._id, name: image._id } }, function(req, res, obj) {
     console.log("triggered build " + obj._id + " for " + image._id);
+    image.needsBuild = false;
+    image.recentBuilds.push({
+      _id: obj._id,
+      date: obj.date
+    });
+    api.put('/images/' + image._id, image, function(req, res, obj) {
+      console.log("linked build to image");
+    });
   });
 }
 
