@@ -1,6 +1,6 @@
 "use strict";
 
-var _ = {}, api = {}, docker = {}, es = {};
+var _ = {}, api = {}, docker = {}, es = {}, logger = {};
 
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, build) {
@@ -11,21 +11,21 @@ var saveAction = function(event) {
     } else if (build.runStage == 'clean') {
       cleanup(build);
     } else {
-      console.log("Nothing to do for " + build.image.name + "/" + build._id);
+      logger.info({image: build.image.name, build_id: build._id}, 'nothing to do');
     }
   });
 };
 
 var saveBuild = function(build) {
   api.put('/builds/' + build._id, build, function(req, res, obj) {
-    console.log("Saving build " + build.image.name);
+    logger.info({image: build.image.name, build_id: build._id}, 'saving build');
   });
 };
 
 function pullImage(build) {
-  console.log('Starting pull for ' + build.image.name);
+  logger.info({image: build.image.name, build_id: build._id}, 'starting pull');
   docker.pull(build.image.name + ':latest', function(err, stream) {
-
+    logger.info(err);
     build.pull = {
       date: Date.now,
       log: []
@@ -38,7 +38,7 @@ function pullImage(build) {
       build.runStage = 'clean';
       build.pull.done = Date.now;
       saveBuild(build);
-      console.log('Finished pull for ' + build.image.name);
+      logger.info({image: build.image.name, build_id: build._id}, 'finished pull')
     };
 
     stream.pipe(es.split())
@@ -48,7 +48,7 @@ function pullImage(build) {
 }
 
 function runScript(build) {
-  console.log('starting run for ' + build.image.name);
+  logger.info({image: build.image.name, build_id: build._id}, 'starting run')
 
   var containerSpec = {
     Image: build.image.name,
@@ -57,13 +57,15 @@ function runScript(build) {
     Cmd: ['bash', '-c', 'uname -a; emerge-webrsync -q; emerge app-portage/gentoolkit -q; glsa-check --nocolor --list all; echo Done']
   };
   docker.createContainer(containerSpec, function (err, container) {
-    console.log('created container for ' + build.image.name + '/' + build._id);
+    logger.info(err);
+    logger.info({image: build.image.name, build_id: build._id}, 'created container');
     build.run = {
       date: Date.now,
       log: []
     };
     container.start(function (err, data) {
-      console.log('started container for ' + build.image.name);
+      logger.info(err);
+      logger.info({image: build.image.name, build_id: build._id}, 'started container')
     });
     container.attach({stream: true, stdout: true, stderr: true}, function(err, stream) {
       var extractLine = function (line, cb) {
@@ -74,7 +76,7 @@ function runScript(build) {
         build.runStage = 'report';
         build.run.done = Date.now;
         saveBuild(build);
-        console.log('Finished run for ' + build.image.name);
+        logger.info({image: build.image.name, build_id: build._id}, 'finished run');
       };
 
       stream.pipe(es.split())
@@ -85,14 +87,11 @@ function runScript(build) {
 }
 
 function cleanup(build) {
-  console.log('cleaning up after '+build.image.name+'/'+build._id);
-
-  docker.getContainer(build.image.name + '-ogc').inspect(function(err, data) {
-          console.log(data);
-  });;
+  logger.info({image: build.image.name, build_id: build._id}, 'cleaning up');
 
   docker.getContainer(build.image.name + '-ogc').remove(function (err, data) {
-    console.log('cleaned up after '+build.image.name+'/'+build._id);
+    logger.info(err)
+    logger.info({image: build.image.name, build_id: build._id}, 'finished cleanup');
     build.clean = {
       date: Date.now,
       log: []
@@ -105,11 +104,12 @@ function cleanup(build) {
   });
 }
 
-function BuildWorker(underscore, apiClient, dockerCmd, eventStream) {
+function BuildWorker(underscore, apiClient, dockerCmd, eventStream, bunyan) {
   _ = underscore;
   api = apiClient;
   docker = dockerCmd;
   es = eventStream;
+  logger = bunyan;
   return {
     save: function() {
       return saveAction;

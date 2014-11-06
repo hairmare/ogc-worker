@@ -1,6 +1,6 @@
 "use strict";
 
-function client(options, restify, assert) {
+function client(options, restify, logger) {
   var client = restify.createJsonClient({
     url: 'http://'+options.apiHost+':'+options.apiPort,
     version: '^0.0.1'
@@ -9,19 +9,19 @@ function client(options, restify, assert) {
     _client: client,
     get: function(obj, callback) {
       client.get(obj, function (err, req, res, obj) {
-        assert.ifError(err);
+        logger.info(err);
         callback(req, res, obj);
       });
     },
     post: function(id, obj, callback) {
       client.post(id, obj, function (err, req, res, obj) {
-        assert.ifError(err);
+        logger.info(err);
         callback(req, res, obj);
       });
     },
     put: function(id, obj, callback) {
       client.put(id, obj, function (err, req, res, obj) {
-        assert.ifError(err);
+        logger.info(err);
         callback(req, res, obj);
       });
     }

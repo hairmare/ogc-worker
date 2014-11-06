@@ -5,23 +5,24 @@ var EventEmitter = require('events').EventEmitter;
 var Dockerode    = require('dockerode');
 var restify      = require('restify');
 var program      = require('commander');
-var assert       = require('assert');
+var bunyan       = require('bunyan');
 var zmq          = require('zmq');
 var es           = require('event-stream');
 var _            = require('underscore');
 
 function getWorkers(config) {
-  var api     = function() { return require('./app/client')(config, restify, assert); };
+  var api     = function() { return require('./app/client')(config, restify, logger); };
   var docker  = function() { return require('./app/docker')(config, Dockerode); };
   var workers = {
-    image:  function() { return require('./app/image/events')(ee,  require('./app/image/worker')(_, api(), docker())); },
-    build:  function() { return require('./app/build/events')(ee,  require('./app/build/worker')(_, api(), docker(), es)); },
-    report: function() { return require('./app/report/events')(ee, require('./app/report/worker')(_, api())); }
+    image:  function() { return require('./app/image/events')(ee,  require('./app/image/worker')(_, api(), docker(), logger)); },
+    build:  function() { return require('./app/build/events')(ee,  require('./app/build/worker')(_, api(), docker(), es, logger)); },
+    report: function() { return require('./app/report/events')(ee, require('./app/report/worker')(_, api(), logger)); }
   }
   return workers;
 }
 
 var ee      = new EventEmitter();
+var logger  = bunyan.createLogger({name: 'ogc-worker'})
 var running = false;
 
 program.version(require('./package.json').version)
@@ -59,7 +60,7 @@ program.command('work [type]')
            console.log("\n   error: specify a valid worker to run\n");
            process.exit(1);
          }
-         console.log("starting worker " + type);
+         logger.info({type: type}, 'starting worker ' + type);
 
          // register worker
          if (type === 'all') {
@@ -69,7 +70,7 @@ program.command('work [type]')
          }
 
          // replay events to worker
-         var sock   = require('./app/zmq/worker')(options, zmq);
+         var sock   = require('./app/zmq/worker')(options, zmq, logger);
 
          sock.on('message', function(msg){
            var payload = JSON.parse(msg.toString());

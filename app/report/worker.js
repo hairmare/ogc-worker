@@ -1,20 +1,19 @@
 "use strict";
 
-var _ = {}, api = {};
+var _ = {}, api = {}, logger = {};
 
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, build) {
     if (build.runStage == 'report') {
       generateReport(build);
     } else {
-      console.log("Nothing to do for " + build.image.name + "/" + build._id);
+      logger.info({image: build.image.name, build_id: build._id}, 'nothing to do');
     }
   });
 };
 
 function generateReport(build) {
-  console.log('generating report for '+build.image.name+'/'+build._id);
-  console.log(build);
+  logger.info({image: build.image.name, build_id: build._id}, 'generating report');
 
   build.report = {
     date: Date.now
@@ -27,13 +26,14 @@ function generateReport(build) {
   build.runStage = 'clean';
   build.report.done = Date.now;
   api.put('/builds/' + build._id, build, function(req, res, obj) {
-    console.log("Saving build " + build.image.name);
+    logger.info({image: build.image.name, build_id: build._id}, 'saving build');
   });
 }
 
-function worker(underscore, apiClient) {
-  _ = underscore;
-  api = apiClient;
+function worker(underscore, apiClient, bunyan) {
+  _      = underscore;
+  api    = apiClient;
+  logger = bunyan;
   return {
     save: function() {
       return saveAction;

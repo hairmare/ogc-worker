@@ -1,6 +1,6 @@
 "use strict";
 
-var _ = {}, api = {}, docker = {};
+var _ = {}, api = {}, docker = {}, logger = {};
 
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, image) {
@@ -21,29 +21,30 @@ function updateImageFromHub(image) {
     image.syncHub = false;
     image.hub = hubImage;
     api.put('/images/' + image._id, image, function(req, res, obj) {
-      console.log("updated " + image._id + " with hub data");
+      logger.info({image: image._id}, 'updated from hub');
     });
   });
 }
 
 function triggerBuild(image) {
-  api.post('/builds', {image: { $ref: '/images/' + image._id, name: image._id } }, function(req, res, obj) {
-    console.log("triggered build " + obj._id + " for " + image._id);
+  api.post('/builds', {image: { $ref: '/images/' + image._id, name: image._id } }, function(req, res, build) {
+    logger.info({image: image._id build_id; build._id}, 'triggered build')
     image.needsBuild = false;
     image.recentBuilds.push({
-      _id: obj._id,
-      date: obj.date
+      _id: build._id,
+      date: build.date
     });
     api.put('/images/' + image._id, image, function(req, res, obj) {
-      console.log("linked build to image");
+      logger.info({image: image._id, build_id: build._id}, 'linked build to image');
     });
   });
 }
 
-function ImageWorker(underscore, apiClient, dockerCmd) {
+function ImageWorker(underscore, apiClient, dockerCmd, bunyan) {
   _ = underscore;
   api = apiClient;
   docker = dockerCmd;
+  logger = bunyan;
   return {
     save: function() {
       return saveAction;
