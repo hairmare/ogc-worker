@@ -1,6 +1,6 @@
 "use strict";
 
-var _ = {}, api = {}, docker = {}, es = {}, logger = {};
+var options = {}, _ = {}, api = {}, docker = {}, es = {}, logger = {};
 
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, build) {
@@ -50,11 +50,24 @@ function pullImage(build) {
 function runScript(build) {
   logger.info({image: build.image.name, build_id: build._id}, 'starting run')
 
+  var commandSpec = [
+    'uname -a',
+    'echo "---- READING NEWS ----"',
+    'eselect news read --raw new',
+    'echo "---- DONE READING NEWS ----"',
+    'DISTDIR="/var/lib/ogc/dist/global/dist" emerge-webrsync -q',
+    'USE="bindist" PKGDIR="/var/lib/ogc/dist/${HOSTNAME}/pkg" DISTDIR="/var/lib/ogc/dist/${HOSTNAME}/dist" emerge @security -q1 --buildpkg',
+    'rsync -a /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPost+'/${HOSTNAME}',
+    'USE="bindist" PORTAGE_BINHOST="http://"'+options.storageWebHost+':'+options.storageWebPort+'/global/ emerge gentoolkit -v1 --buildpkg --usepkg',
+    'glsa-check --nocolor --list all',
+    'echo Done'
+  ];
+
   var containerSpec = {
     Image: build.image.name,
     Name: build.image.name + '-ogc',
     Tty: true,
-    Cmd: ['bash', '-c', 'uname -a; emerge-webrsync -q; emerge app-portage/gentoolkit -q; glsa-check --nocolor --list all; echo Done']
+    Cmd: ['bash', '-c', commandSpec.join('; ')]
   };
   docker.createContainer(containerSpec, function (err, container) {
     logger.info(err);
@@ -104,7 +117,8 @@ function cleanup(build) {
   });
 }
 
-function BuildWorker(underscore, apiClient, dockerCmd, eventStream, bunyan) {
+function BuildWorker(options, underscore, apiClient, dockerCmd, eventStream, bunyan) {
+  options = options;
   _ = underscore;
   api = apiClient;
   docker = dockerCmd;
