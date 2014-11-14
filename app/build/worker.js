@@ -42,12 +42,11 @@ function pullImage(build) {
     };
     if (err) {
       logger.info(err);
-      build.log.push(JSON.stringify(err));
+      build.pull.log.push(JSON.stringify(err));
     }
     var extractLine = function (line, cb) {
       _.each(line.replace(/}{/g, '}}{{').split('}{'), function(line) {
         build.pull.log.push(line);
-        lines++;
       });
       cb(null, line);
     };
@@ -68,16 +67,21 @@ function runScript(build) {
   logger.info({image: build.image.name, build_id: build._id}, 'starting run')
 
   var commandSpec = [
-    'sleep 5;', // sleep so we have time to attach to the machine
+    'sleep 5', // sleep so we have time to attach to the machine
     'uname -a', // always interesting
+    'env',
+    'echo "Using DISTDIR /var/lib/ogc/dist/global/dist"',
     'DISTDIR="/var/lib/ogc/dist/global/dist" emerge-webrsync -q', // update portage tree
     'echo "---- READING NEWS ----"', // some context to parse out news
     'eselect news read --raw new',
     'echo "---- DONE READING NEWS ----"',
+    'echo "Building @security with PKGDIR=/var/lib/ogc/dist/${HOSTNAME}/pkg and DISTDIR="/var/lib/ogc/dist/${HOSTNAME}/dist'.
     'USE="bindist" PKGDIR="/var/lib/ogc/dist/${HOSTNAME}/pkg" DISTDIR="/var/lib/ogc/dist/${HOSTNAME}/dist" emerge @security -q1 --buildpkg --color n --nospinner', // build sec packages
+    'echo "Storing build artefacts"',
     'echo rsync -va /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPort+'/${HOSTNAME}', // display rsync cmd
     'rsync -va /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPort+'/${HOSTNAME}', // store them
-    'USE="bindist" PORTAGE_BINHOST="http://"'+options.storageWebHost+':'+options.storageWebPort+'/global/ emerge gentoolkit -q1 --buildpkg --usepkg --color n --nospinner', // grab glsa-check
+    'echo "Installing gentoolkit with PORTAGE_BINHOST=http://"'+options.storageWebHost+':'+options.storageWebPort+'/global/',
+    'USE="bindist" PORTAGE_BINHOST="http://'+options.storageWebHost+':'+options.storageWebPort+'/global/" emerge gentoolkit -q1 --buildpkg --usepkg --color n --nospinner', // grab glsa-check
     'glsa-check --nocolor --list all', // run glsa-check
     'echo Done'
   ];
@@ -145,8 +149,8 @@ function cleanup(build) {
   });
 }
 
-function BuildWorker(options, underscore, apiClient, dockerCmd, eventStream, bunyan) {
-  options = options;
+function BuildWorker(config, underscore, apiClient, dockerCmd, eventStream, bunyan) {
+  options = config;
   _ = underscore;
   api = apiClient;
   docker = dockerCmd;

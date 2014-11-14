@@ -51,8 +51,8 @@ program.command('work [type]')
        .option('--docker-host        <DOCKER_PORT_4444_TCP_ADDR>',   "docker host, default: localhost", process.env.DOCKER_PORT_4444_TCP_ADDR || 'localhost')
        .option('--docker-port        <DOCKER_PORT_4444_TCP_PORT>',   "docker port, default: 4444\n", process.env.DOCKER_PORT_4444_TCP_PORT || 4444)
 
-       .option('--storage-rsync-host <RSYNC_PORT_873_TCP_ADDR>',     "ogc-storage host, default: localhost", process.env.WEB_PORT_80_TCP_ADDR || 'localhost')
-       .option('--storage-rsync-port <RSYNC_PORT_873_TCP_PORT>',     "ogc-storage port, default: 873", process.env.WEB_PORT_80_TCP_PORT || 873) 
+       .option('--storage-rsync-host <RSYNC_PORT_873_TCP_ADDR>',     "ogc-storage host, default: localhost", process.env.RSYNC_PORT_873_TCP_ADDR || 'localhost')
+       .option('--storage-rsync-port <RSYNC_PORT_873_TCP_PORT>',     "ogc-storage port, default: 873", process.env.RSYNC_PORT_873_TCP_PORT || 873)
        .option('--storage-web-host   <WEB_PORT_80_TCP_ADDR>',        "ogc-storage-web host, default: localhost", process.env.WEB_PORT_80_TCP_ADDR || 'localhost')
        .option('--storage-web-port   <WEB_PORT_80_TCP_PORT>',        "ogc-storage-web port, default: 80", process.env.WEB_PORT_80_TCP_PORT || 80) 
        .action(function(type, options) {
