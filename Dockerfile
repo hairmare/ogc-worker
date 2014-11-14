@@ -19,5 +19,3 @@ RUN cd /usr/local/src/ogc-worker; npm install -g && chmod +x /usr/lib/node_modul
 # configure runtime
 
 ENTRYPOINT [ "node", "/usr/lib/node_modules/ogc-worker/ogc-worker.js" ]
-
-EXPOSE 80 3000

@@ -9,19 +9,19 @@ function client(options, restify, logger) {
     _client: client,
     get: function(obj, callback) {
       client.get(obj, function (err, req, res, obj) {
-        logger.info(err);
+        if(err) { logger.info(err); }
         callback(req, res, obj);
       });
     },
     post: function(id, obj, callback) {
       client.post(id, obj, function (err, req, res, obj) {
-        logger.info(err);
+        if (err) { logger.info(err); }
         callback(req, res, obj);
       });
     },
     put: function(id, obj, callback) {
       client.put(id, obj, function (err, req, res, obj) {
-        logger.info(err);
+        if (err) { logger.info(err); }
         callback(req, res, obj);
       });
     }

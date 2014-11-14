@@ -4,12 +4,23 @@ var options = {}, _ = {}, api = {}, docker = {}, es = {}, logger = {};
 
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, build) {
-    if (build.runStage == 'pull') {
-      pullImage(build)
-    } else if (build.runStage == 'run') {
-      runScript(build);
-    } else if (build.runStage == 'clean') {
-      cleanup(build);
+
+    if (build.needsRun) {
+      switch(build.runStage) {
+        case 'pull':
+          pullImage(build);
+          break;
+        case 'run':
+          runScript(build);
+          break;
+        case 'report':
+          build.runStage = 'clean';
+          saveBuild(build);
+          break;
+        case 'clean':
+          cleanup(build);
+          break;
+      }
     } else {
       logger.info({image: build.image.name, build_id: build._id}, 'nothing to do');
     }
@@ -25,18 +36,24 @@ var saveBuild = function(build) {
 function pullImage(build) {
   logger.info({image: build.image.name, build_id: build._id}, 'starting pull');
   docker.pull(build.image.name + ':latest', function(err, stream) {
-    logger.info(err);
     build.pull = {
-      date: Date.now,
+      date: new Date().toISOString(),
       log: []
     };
+    if (err) {
+      logger.info(err);
+      build.log.push(JSON.stringify(err));
+    }
     var extractLine = function (line, cb) {
-      _.each(line.replace(/}{/g, '}}{{').split('}{'), function(line) { build.pull.log.push(line); });
+      _.each(line.replace(/}{/g, '}}{{').split('}{'), function(line) {
+        build.pull.log.push(line);
+        lines++;
+      });
       cb(null, line);
     };
     var finishPull = function() {
-      build.runStage = 'clean';
-      build.pull.done = Date.now;
+      build.runStage = 'run';
+      build.pull.done = new Date().toISOString(),
       saveBuild(build);
       logger.info({image: build.image.name, build_id: build._id}, 'finished pull')
     };
@@ -51,43 +68,53 @@ function runScript(build) {
   logger.info({image: build.image.name, build_id: build._id}, 'starting run')
 
   var commandSpec = [
-    'uname -a',
-    'echo "---- READING NEWS ----"',
+    'sleep 5;', // sleep so we have time to attach to the machine
+    'uname -a', // always interesting
+    'DISTDIR="/var/lib/ogc/dist/global/dist" emerge-webrsync -q', // update portage tree
+    'echo "---- READING NEWS ----"', // some context to parse out news
     'eselect news read --raw new',
     'echo "---- DONE READING NEWS ----"',
-    'DISTDIR="/var/lib/ogc/dist/global/dist" emerge-webrsync -q',
-    'USE="bindist" PKGDIR="/var/lib/ogc/dist/${HOSTNAME}/pkg" DISTDIR="/var/lib/ogc/dist/${HOSTNAME}/dist" emerge @security -q1 --buildpkg',
-    'rsync -a /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPost+'/${HOSTNAME}',
-    'USE="bindist" PORTAGE_BINHOST="http://"'+options.storageWebHost+':'+options.storageWebPort+'/global/ emerge gentoolkit -v1 --buildpkg --usepkg',
-    'glsa-check --nocolor --list all',
+    'USE="bindist" PKGDIR="/var/lib/ogc/dist/${HOSTNAME}/pkg" DISTDIR="/var/lib/ogc/dist/${HOSTNAME}/dist" emerge @security -q1 --buildpkg --color n --nospinner', // build sec packages
+    'echo rsync -va /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPort+'/${HOSTNAME}', // display rsync cmd
+    'rsync -va /var/lib/ogc/dist/${HOSTNAME}/ rsync://'+options.storageRsyncHost+':'+options.storageRsyncPort+'/${HOSTNAME}', // store them
+    'USE="bindist" PORTAGE_BINHOST="http://"'+options.storageWebHost+':'+options.storageWebPort+'/global/ emerge gentoolkit -q1 --buildpkg --usepkg --color n --nospinner', // grab glsa-check
+    'glsa-check --nocolor --list all', // run glsa-check
     'echo Done'
   ];
 
   var containerSpec = {
     Image: build.image.name,
-    Name: build.image.name + '-ogc',
+    name: build.image.name.replace(/\//, '_') + '-ogc',
     Tty: true,
     Cmd: ['bash', '-c', commandSpec.join('; ')]
   };
   docker.createContainer(containerSpec, function (err, container) {
-    logger.info(err);
-    logger.info({image: build.image.name, build_id: build._id}, 'created container');
     build.run = {
-      date: Date.now,
+      date: new Date().toISOString(),
       log: []
     };
-    container.start(function (err, data) {
+    if (err) {
       logger.info(err);
-      logger.info({image: build.image.name, build_id: build._id}, 'started container')
+    }
+    logger.info({image: build.image.name, build_id: build._id}, 'created container');
+    container.start(function (err, data) {
+      if (err) {
+        logger.info(err);
+      } else {
+        logger.info({image: build.image.name, build_id: build._id}, 'started container')
+      }
     });
     container.attach({stream: true, stdout: true, stderr: true}, function(err, stream) {
+      if (err) {
+        logger.info(err);
+      }
       var extractLine = function (line, cb) {
         build.run.log.push(line);
         cb(null, line);
       };
       var finishRun = function() {
         build.runStage = 'report';
-        build.run.done = Date.now;
+        build.run.done = new Date().toISOString();
         saveBuild(build);
         logger.info({image: build.image.name, build_id: build._id}, 'finished run');
       };
@@ -102,17 +129,18 @@ function runScript(build) {
 function cleanup(build) {
   logger.info({image: build.image.name, build_id: build._id}, 'cleaning up');
 
-  docker.getContainer(build.image.name + '-ogc').remove(function (err, data) {
-    logger.info(err)
+  docker.getContainer(build.image.name.replace(/\//, '_') + '-ogc').remove(function (err, data) {
+    if (err) { logger.info(err) }
     logger.info({image: build.image.name, build_id: build._id}, 'finished cleanup');
     build.clean = {
-      date: Date.now,
+      date: new Date().toISOString(),
       log: []
     }
 
     build.runStage = 'done';
+    build.needsRun = false;
     build.clean.log.push(data);
-    build.clean.done = Date.now;
+    build.clean.done = new Date().toISOString();
     saveBuild(build);
   });
 }

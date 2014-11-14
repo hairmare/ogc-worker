@@ -5,6 +5,7 @@ var _ = {}, api = {}, docker = {}, logger = {};
 var saveAction = function(event) {
   api.get(event['$ref'], function (req, res, image) {
 
+    logger.info({image: image.name}, "save trigger");
     if (image.syncHub) {
       updateImageFromHub(image);
     } else if (image.needsBuild) {
@@ -14,28 +15,29 @@ var saveAction = function(event) {
 };
 
 function updateImageFromHub(image) {
-  docker.searchImages({term: image._id}, function(err, images) {
+  docker.searchImages({term: image.name}, function(err, images) {
     var hubImage = _.find(images, function(item, name) {
-      return item.name == image._id;
+      return item.name == image.name;
     });
     image.syncHub = false;
     image.hub = hubImage;
     api.put('/images/' + image._id, image, function(req, res, obj) {
-      logger.info({image: image._id}, 'updated from hub');
+      logger.info({image: image.name}, 'updated from hub');
     });
   });
 }
 
 function triggerBuild(image) {
-  api.post('/builds', {image: { $ref: '/images/' + image._id, name: image._id } }, function(req, res, build) {
-    logger.info({image: image._id build_id; build._id}, 'triggered build')
+  api.post('/builds', {image: { $ref: '/images/' + image._id, _id: image._id, name: image.name } }, function(req, res, build) {
+    logger.info({image: image.name, build_id: build._id}, 'triggered build')
     image.needsBuild = false;
     image.recentBuilds.push({
       _id: build._id,
-      date: build.date
+      date: build.date,
+      $ref: '/builds/' + build._id
     });
     api.put('/images/' + image._id, image, function(req, res, obj) {
-      logger.info({image: image._id, build_id: build._id}, 'linked build to image');
+      logger.info({image: image.name, build_id: build._id}, 'linked build to image');
     });
   });
 }

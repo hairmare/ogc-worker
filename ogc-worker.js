@@ -15,7 +15,7 @@ function getWorkers(config) {
   var docker  = function() { return require('./app/docker')(config, Dockerode); };
   var workers = {
     image:  function() { return require('./app/image/events')(ee,  require('./app/image/worker')(_, api(), docker(), logger)); },
-    build:  function() { return require('./app/build/events')(ee,  require('./app/build/worker')(options, _, api(), docker(), es, logger)); },
+    build:  function() { return require('./app/build/events')(ee,  require('./app/build/worker')(config, _, api(), docker(), es, logger)); },
     report: function() { return require('./app/report/events')(ee, require('./app/report/worker')(_, api(), logger)); }
   }
   return workers;
